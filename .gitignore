@@ -4,4 +4,6 @@ images
 image
 data/
 data
+models
+model
 MNIST
