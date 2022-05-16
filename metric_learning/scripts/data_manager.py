@@ -1,6 +1,8 @@
 import os
+import copy
 
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
@@ -8,8 +10,11 @@ import torch
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
+from collections import OrderedDict
+
+
 class AnomalyDataManager():
-    def __init__(self, dataset, data_dir, trans, seed, only_normal, anomaly_label=None, data_num=10000):
+    def __init__(self, dataset, data_dir, trans, seed, only_normal, anomaly_label=None, data_num=-1):
         self.dataset = dataset
         self.data_dir = data_dir
         self.transforms = trans
@@ -55,18 +60,31 @@ class AnomalyDataManager():
             
             assert anomaly_label != None, print('assert: anomaly_label==None.')
             # anomaly label setting
-            if self.anomaly_label != None:
+            if self.anomaly_label >= 0:
                 mask = (self.train_dataset.targets != self.anomaly_label)
+                print(len(self.train_dataset.targets))
             else:
                 mask = (self.train_dataset.targets % 2 == 0)
             self.train_dataset.data = self.train_dataset.data[mask][:self.data_num]
             self.train_dataset.targets = self.train_dataset.targets[mask][:self.data_num]
-            self.train_dataset.classes = self.train_dataset.targets.unique()
+            self.train_dataset.classes = self.train_dataset.targets.unique().detach().numpy()
+            print(sorted(self.train_dataset.targets.unique().detach().numpy()))
+            print(self.train_dataset.classes)
+            trans_dict = {sorted(self.train_dataset.targets.unique().detach().numpy())[k]:k for k in range(len(self.train_dataset.classes))}
+            print(trans_dict)
+            
+            # trans labels (ラベルが連続になるように)
+            print(len(self.train_dataset.targets))
+            self.train_dataset.targets = torch.tensor(list(map(lambda x: trans_dict[x.item()], self.train_dataset.targets)))
+            print(self.train_dataset.targets)
+
+            self.val_dataset = copy.deepcopy(self.train_dataset)
+
+            self.train_dataset.data, self.val_dataset.data, self.train_dataset.targets, self.val_dataset.targets = train_test_split(self.train_dataset.data, self.train_dataset.targets,  test_size=0.2, random_state=self.seed, stratify=self.train_dataset.targets)
 
         elif self.dataset.lower() == 'kdd':
             self.data_type = 'table'
             self.train_dataset, self.val_dataset, self.test_dataset = self.load_KDD(only_normal)
-
 
         self.dataset_dict['train'] = self.train_dataset
         self.dataset_dict['val'] = self.val_dataset
@@ -112,6 +130,7 @@ class AnomalyDataManager():
         data = pd.get_dummies(df.iloc[:, :-2])
         target = df.iloc[:, -2].map(self.target_dict)
         # target = df.iloc[:, -2].map(self.test_only_target)
+        # print(self.target_dict)
 
         return data, target
 
@@ -129,15 +148,26 @@ class AnomalyDataManager():
         ]
 
         print(columns)
-        
-        self.target_dict = dict(zip(df_train.iloc[:, -2].unique(), range(len(df_train.iloc[:, -2].unique()))))
-        print(self.target_dict.keys())
-        self.test_only_target = {}
-        print(df_test.iloc[:, -2].unique())
-        for key in df_test.iloc[:, -2].unique():
-            if key not in self.target_dict.keys():
-                # print(key)
-                self.test_only_target[key] = -1
+        dos = ['back','land','neptune','pod','smurf',
+            'teardrop','mailbomb','processtable','udpstorm','apache2','worm']
+        probe = ['satan','ipsweep','nmap','portsweep','mscan','saint']
+        r2l = ['guess_passwd','ftp_write','imap','phf','multihop','warezmaster', 'warezclient', 'xlock','xsnoop','snmpguess',
+            'snmpgetattack','httptunnel','sendmail', 'named', 'spy']
+        u2r = ['buffer_overflow','loadmodule','rootkit','perl','sqlattack','xterm','ps']
+
+        self.target_dict = dict(zip(sorted(df_train.iloc[:, -2].unique()), range(len(df_train.iloc[:, -2].unique()))))
+        print(self.target_dict)
+        self.test_only_target_dict = {}
+        # print(df_test.iloc[:, -2].unique())
+        test_only_target = set(df_test.iloc[:, -2].unique()) - set(self.target_dict.keys())
+        print(sorted(test_only_target))
+        self.test_only_target = dict(zip(sorted(test_only_target), range(len(self.target_dict.keys()), len(self.target_dict.keys()) + len(test_only_target))))
+
+        # print(self.test_only_target)
+        # for key in test_only_attacks_dict.keys():
+        #     if key not in self.target_dict.keys():
+        #         # print(key)
+        #         self.test_only_target[key] = -1
 
         # print(self.test_only_target)
 
@@ -150,6 +180,7 @@ class AnomalyDataManager():
 
         train_data, val_data, train_target, val_target = train_test_split(train_data, train_target,  test_size=0.2, random_state=self.seed, stratify=train_target)
 
+        # カテゴリカル変数以外を標準化
         scaling_columns = ['duration', 'src_bytes', 'dst_bytes', 'land', 'wrong_fragment', 'urgent',
                     'hot', 'num_failed_logins', 'logged_in', 'num_compromised', 'root_shell', 'su_attempted', 'num_root', 'num_file_creations',
                     'num_shells', 'num_access_files', 'num_outbound_cmds', 'count', 'srv_count', 'serror_rate',

@@ -30,7 +30,7 @@ parser.add_argument('--save_interval', type=int, default=1)
 
 # learning params
 parser.add_argument('--max_epoch', type=int, default=50)
-parser.add_argument('--batch_size', type=int, default=2048)
+parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--wd', type=float,default=5e-4)
 # parser.add_argument('--momentum', type=float, default=0.9)
@@ -38,8 +38,8 @@ parser.add_argument('--wd', type=float,default=5e-4)
 # dataset
 parser.add_argument('--dataset', type=str, default='kdd')
 parser.add_argument('--data_type', type=str, default='table')
-parser.add_argument('--anormaly_label', type=int, default=4)
-parser.add_argument('--data_num', type=int, default=200)
+parser.add_argument('--anomaly_label', type=int, default=4)
+parser.add_argument('--data_num', type=int, default=-1)
 
 # model's params
 parser.add_argument('--metric_layer', type=str, default='arcface')
@@ -55,7 +55,7 @@ def main(args):
     seed_torch(args.seed)
 
     # prepare dataset
-    data_manager = AnomalyDataManager(dataset=args.dataset, data_dir=args.data_dir, trans=None, seed=args.seed, only_normal=None, anomaly_label=args.anormaly_label, data_num=200)
+    data_manager = AnomalyDataManager(dataset=args.dataset, data_dir=args.data_dir, trans=None, seed=args.seed, only_normal=None, anomaly_label=args.anomaly_label, data_num=args.data_num)
     
     # build dataloader
     dataloader_dict = data_manager.build_dataloader(args.batch_size)
@@ -63,6 +63,12 @@ def main(args):
     # build model, optimizer
     channel_in = data_manager.get_channel_in()
     num_classes = data_manager.get_num_classes()
+
+    if args.dataset.lower() == 'mnist':
+        print("image")
+        args.data_type = 'image'
+    elif args.dataset.lower() == 'kdd':
+        args.data_type = 'table'
 
     if args.data_type.lower() == 'image':
         model = ResNet18(num_classes=args.feature_dim, channel_in=channel_in)
@@ -111,8 +117,8 @@ def main(args):
     anomaly_detection_acc = 0
     for data, label in dataloader_dict['test']:
         data = data.to(device)
-        # 学習にない異常データ（ラベル22~）はその他ラベル-1とする
-        label_mask = label > 21
+        # 学習にない異常データ（ラベル23~）はその他ラベル-1とする
+        label_mask = label > 22
         label[label_mask] = -1
         # label = label.to(device)
         probs = metric_model.inference(data)

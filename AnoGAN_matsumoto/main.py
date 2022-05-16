@@ -35,7 +35,7 @@ def main():
                             ]),
                             target_transform=None,
                             download=True)
-    mask = mnist_train.targets == 0
+    mask = mnist_train.targets == 4
     mnist_train.data = mnist_train.data[mask]
     mnist_train.targets = mnist_train.targets[mask]
 
@@ -104,8 +104,8 @@ def main():
             # model save
         if (i+1) % 1 == 0:
             # print('gen loss: ', gen_loss.item(), 'dis loss:', dis_loss.item())
-            torch.save(generator.state_dict(),'./saved_model/generator.pkl')
-            torch.save(discriminator.state_dict(),'./saved_model/discriminator.pkl')
+            torch.save(generator.state_dict(),'./saved_model/generator_epoch{}.pkl'.format(i))
+            torch.save(discriminator.state_dict(),'./saved_model/discriminator_epoch{}.pkl'.format(i))
 
 
             print("{}th iteration gen_loss: {} dis_loss: {}".format(i,gen_loss.data,dis_loss.data))
@@ -147,7 +147,7 @@ def main():
 
 
         for i in range(500):
-            print('updated noize z: ', z.item())
+            print('updated noize z: ', z)
             gen_fake = generator(z)
             loss = Anomaly_score(Variable(test_data_mnist), gen_fake, discriminator, Lambda=0.01)
             loss.backward()
