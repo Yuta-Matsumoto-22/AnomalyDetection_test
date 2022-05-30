@@ -37,16 +37,16 @@ parser.add_argument('--criterion', type=str, default='MAE')
 # parser.add_argument('--momentum', type=float, default=0.9)
 
 # dataset
-parser.add_argument('--dataset', type=str, default='kdd')
-# parser.add_argument('--data_type', type=str, default='table')
-parser.add_argument('--anormaly_label', type=int, default=4)
-parser.add_argument('--data_num', type=int, default=200)
+parser.add_argument('--dataset', type=str, default='mnist')
+parser.add_argument('--data_type', type=str, default='image')
+parser.add_argument('--anomaly_setting', type=int, default=0)
+parser.add_argument('--data_num', type=int, default=20000)
 parser.add_argument('--only_normal', type=bool, default=True)
 
 # model's params
 parser.add_argument('--metric_layer', type=str, default='arcface')
 parser.add_argument('--model', type=str, default='autoencoder')
-parser.add_argument('--feature_dim', type=int, default=5)
+parser.add_argument('--feature_dim', type=int, default=10)
 
 args = parser.parse_args()
 print(args)
@@ -58,7 +58,7 @@ def main(args):
     seed_torch(args.seed)
 
     # prepare dataset
-    data_manager = AnomalyDataManager(dataset=args.dataset, data_dir=args.data_dir, trans=None, seed=args.seed, only_normal=args.only_normal, anomaly_label=args.anormaly_label, data_num=200)
+    data_manager = AnomalyDataManager(dataset=args.dataset, data_dir=args.data_dir, trans=None, seed=args.seed, only_normal=args.only_normal, anomaly_setting=args.anomaly_setting, data_num=args.data_num)
     
     # build dataloader
     dataloader_dict = data_manager.build_dataloader(args.batch_size)
@@ -68,12 +68,15 @@ def main(args):
     num_classes = data_manager.get_num_classes()
 
     if data_manager.data_type.lower() == 'image':
-        model = ResNet18(num_classes=args.feature_dim, channel_in=channel_in)
+        if args.model.lower() == 'autoencoder':
+            model = AutoEncoder(in_dims=data_manager.input_dim, latent_dims=args.feature_dim)
+        else:
+            model = ResNet18(num_classes=args.feature_dim, channel_in=channel_in)
     elif data_manager.data_type.lower() == 'table':
         if args.model.lower() == 'mlp':
             model = MLP(in_features=data_manager.input_dim, out_features=args.feature_dim)
         elif args.model.lower() == 'autoencoder':
-            model = AutoEncoder(in_dims=data_manager.input_dim, latent_dims=args.feature_dim, first_dims=32)
+            model = AutoEncoder(in_dims=data_manager.input_dim, latent_dims=args.feature_dim)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
     if args.criterion.lower() == 'mse':
@@ -83,17 +86,18 @@ def main(args):
 
     # dir setting
     model_dir = os.path.join(args.model_dir, args.dataset)
-    model_dir = os.path.join(args.model_dir, "emb_size_" + str(args.feature_dim))
+    model_dir = os.path.join(model_dir, "anomaly_setting_" + str(args.anomaly_setting))
+    model_dir = os.path.join(model_dir, "emb_size_" + str(args.feature_dim))
     if os.path.exists(model_dir) != True:
         os.makedirs(model_dir)
 
     result_dir = os.path.join(args.result_dir, args.dataset)
-    result_dir = os.path.join(args.result_dir, "emb_size_" + str(args.feature_dim))
+    result_dir = os.path.join(result_dir, "emb_size_" + str(args.feature_dim))
     if os.path.exists(result_dir) != True:
         os.makedirs(result_dir)
 
     # train model
-    trainer = AutoEncoderTrainer(model, optimizer, criterion, device, model_dir=model_dir, result_dir=result_dir)
+    trainer = AutoEncoderTrainer(model, optimizer, criterion, data_manager.input_dim, device, model_dir=model_dir, result_dir=result_dir)
     trainer.train_model(dataloader_dict=dataloader_dict, max_epoch=args.max_epoch, save_interval=args.save_interval)
 
     # eval model on train dataset
@@ -109,7 +113,9 @@ def main(args):
 
     losses = []
     for data, label in dataloader_dict['train']: 
+        data = data.reshape(-1, data_manager.input_dim)
         data = data.to(device)
+        label = 0
         label = label.to(device)
         pred_label, loss = model.inference(data, criterion, device)
         losses.append(mean(loss.cpu().detach().tolist()))
@@ -122,11 +128,25 @@ def main(args):
     # eval model on test dataset
     normal_acc = 0
     for data, label in dataloader_dict['test']:
+        data = data.reshape(-1, data_manager.input_dim)
         data = data.to(device)
         label = label.to(device)
-        # １以上はすべて異常データ
-        label_mask = label != 0
-        label[label_mask] = 1
+        if args.anomaly_setting == 0:
+            normal_mask = (label == 4)
+            anomaly_mask = (label != 4)
+        elif args.anomaly_setting == 1:
+            normal_mask = (label % 2 == 0)
+            anomaly_mask = (label % 2 != 0)
+        elif args.anomaly_setting == 2:
+            normal_mask = (label != 9)
+            anomaly_mask = (label == 9)
+        else:
+            normal_mask = (label >= 0)
+            anomaly_mask = (label < 0)
+        
+        label[normal_mask] = 0
+        label[anomaly_mask] = 1
+        
         # label = label.to(device)
         pred_label, loss = model.inference(data, criterion, device)
         losses.append(mean(loss.cpu().detach().tolist()))

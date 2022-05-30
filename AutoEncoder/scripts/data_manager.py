@@ -1,5 +1,7 @@
 import os
 
+import copy
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -8,12 +10,14 @@ import torch
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 
+import matplotlib.pyplot as plt
+
 class AnomalyDataManager():
-    def __init__(self, dataset, data_dir, trans, seed, only_normal, anomaly_label=None, data_num=10000):
+    def __init__(self, dataset, data_dir, trans, seed, only_normal, anomaly_setting=None, data_num=10000):
         self.dataset = dataset
         self.data_dir = data_dir
         self.transforms = trans
-        self.anomaly_label = anomaly_label
+        self.anomaly_setting = anomaly_setting
         self.data_num = data_num
         self.seed = seed
         self.only_normal = only_normal
@@ -30,7 +34,6 @@ class AnomalyDataManager():
                                             transforms.Resize(28),
                                             transforms.ToTensor(),
                                             transforms.Normalize((0.5,), (0.5,)),
-                                            
                                         ]),
                                         target_transform=None,
                                         download=True)
@@ -53,20 +56,31 @@ class AnomalyDataManager():
                                         target_transform=None,
                                         download=True)
             
-            assert anomaly_label != None, print('assert: anomaly_label==None.')
+            assert anomaly_setting != None, print('assert: anomaly_label==None.')
             # anomaly label setting
-            if self.anomaly_label != None:
-                mask = (self.train_dataset.targets != self.anomaly_label)
+            if self.anomaly_setting == 0:
+                normal_mask = (self.train_dataset.targets == 4)
+            elif self.anomaly_setting == 1:
+                normal_mask = (self.train_dataset.targets % 2 == 0)
+            elif self.anomaly_setting == 2:
+                normal_mask = (self.train_dataset.targets != 9)
             else:
-                mask = (self.train_dataset.targets % 2 == 0)
-            self.train_dataset.data = self.train_dataset.data[mask][:self.data_num]
-            self.train_dataset.targets = self.train_dataset.targets[mask][:self.data_num]
-            self.train_dataset.classes = self.train_dataset.targets.unique()
+                normal_mask = (self.train_dataset.targets >= 0)
 
+            self.train_dataset.data = self.train_dataset.data[normal_mask][:self.data_num]
+            self.train_dataset.targets = self.train_dataset.targets[normal_mask][:self.data_num]
+            self.train_dataset.classes = self.train_dataset.targets.unique()
+            self.input_dim = len(self.train_dataset.data[0].flatten())
+
+            self.test_dataset.data = self.test_dataset.data
+            self.val_dataset = copy.deepcopy(self.train_dataset)
+
+            self.train_dataset.data, self.val_dataset.data, self.train_dataset.targets, self.val_dataset.targets = train_test_split(self.train_dataset.data, self.train_dataset.targets,  test_size=0.2, random_state=self.seed, stratify=self.train_dataset.targets)
+
+            print("train data: {}".format(len(self.train_dataset.targets)))
         elif self.dataset.lower() == 'kdd':
             self.data_type = 'table'
             self.train_dataset, self.val_dataset, self.test_dataset = self.load_KDD(only_normal)
-
 
         self.dataset_dict['train'] = self.train_dataset
         self.dataset_dict['val'] = self.val_dataset

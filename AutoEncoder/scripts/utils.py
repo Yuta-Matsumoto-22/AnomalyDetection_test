@@ -2,6 +2,7 @@ import os
 import random
 
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
 import torch
@@ -44,3 +45,8 @@ def data_split(x, y, test_size=0.2, val_size=0.2, random_state=0):
     v_size = val_size / (1.0 - test_size)
     tr_val_x, test_x, tr_val_y, test_y = train_test_split(x, y, test_size=test_size, random_state=random_state)
     train_x, val_x, train_y, val_y = train_test_split(tr_val_x, tr_val_y, test_size=v_size, random_state=random_state)
+
+def image_check(img, nums):
+    for i in range(nums):
+        plt.imshow(img[i], cmap='gray')
+        plt.show()

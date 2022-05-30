@@ -60,28 +60,32 @@ class AnomalyDataManager():
             
             assert anomaly_label != None, print('assert: anomaly_label==None.')
             # anomaly label setting
-            if self.anomaly_label >= 0:
-                mask = (self.train_dataset.targets != self.anomaly_label)
-                print(len(self.train_dataset.targets))
+            if self.anomaly_setting == 0:
+                normal_mask = (self.train_dataset.targets == 4)
+            elif self.anomaly_setting == 1:
+                normal_mask = (self.train_dataset.targets % 2 == 0)
+            elif self.anomaly_setting == 2:
+                normal_mask = (self.train_dataset.targets != 9)
             else:
-                mask = (self.train_dataset.targets % 2 == 0)
-            self.train_dataset.data = self.train_dataset.data[mask][:self.data_num]
-            self.train_dataset.targets = self.train_dataset.targets[mask][:self.data_num]
-            self.train_dataset.classes = self.train_dataset.targets.unique().detach().numpy()
+                normal_mask = (self.train_dataset.targets >= 0)
+            self.train_dataset.data = self.train_dataset.data[normal_mask][:self.data_num]
+            self.train_dataset.targets = self.train_dataset.targets[normal_mask][:self.data_num]
+            self.train_dataset.classes = self.train_dataset.targets.unique()
+
             print(sorted(self.train_dataset.targets.unique().detach().numpy()))
             print(self.train_dataset.classes)
             trans_dict = {sorted(self.train_dataset.targets.unique().detach().numpy())[k]:k for k in range(len(self.train_dataset.classes))}
             print(trans_dict)
             
-            # trans labels (ラベルが連続になるように)
-            print(len(self.train_dataset.targets))
+            # # trans labels (ラベルが連続になるように)
             self.train_dataset.targets = torch.tensor(list(map(lambda x: trans_dict[x.item()], self.train_dataset.targets)))
-            print(self.train_dataset.targets)
+            print(sorted(self.train_dataset.targets.unique().detach().numpy()))
 
             self.val_dataset = copy.deepcopy(self.train_dataset)
 
             self.train_dataset.data, self.val_dataset.data, self.train_dataset.targets, self.val_dataset.targets = train_test_split(self.train_dataset.data, self.train_dataset.targets,  test_size=0.2, random_state=self.seed, stratify=self.train_dataset.targets)
 
+            print("train data: {}".format(len(self.train_dataset.targets)))
         elif self.dataset.lower() == 'kdd':
             self.data_type = 'table'
             self.train_dataset, self.val_dataset, self.test_dataset = self.load_KDD(only_normal)
@@ -90,10 +94,12 @@ class AnomalyDataManager():
         self.dataset_dict['val'] = self.val_dataset
         self.dataset_dict['test'] = self.test_dataset
 
-    def build_dataloader(self, batch_size):
+    def build_dataloader(self, batch_size, shuffle=None):
         for key in self.dataset_dict.keys():
-            if key == 'train':
+            if key == 'train' and shuffle == None:
                 self.dataloader_dict[key] = torch.utils.data.DataLoader(dataset=self.dataset_dict[key], batch_size=batch_size, shuffle=True, drop_last=False)
+            elif  key == 'train' and shuffle != None:
+                self.dataloader_dict[key] = torch.utils.data.DataLoader(dataset=self.dataset_dict[key], batch_size=batch_size, shuffle=False, drop_last=False)
             else :
                 self.dataloader_dict[key] = torch.utils.data.DataLoader(dataset=self.dataset_dict[key], batch_size=batch_size, shuffle=False, drop_last=False)
 

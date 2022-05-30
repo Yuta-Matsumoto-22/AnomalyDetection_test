@@ -3,7 +3,6 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 
 # Generator receives random noise z and create 1x28x28 image
-# we can name each layer using OrderedDict
 class Generator(nn.Module):
     def __init__(self):
         super(Generator,self).__init__()
@@ -34,8 +33,8 @@ class Generator(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         ### gray scale ### 
-        trf = transforms.Lambda(lambda x: x.repeat(1,3,1,1))
-        out = trf(out)
+        # trf = transforms.Lambda(lambda x: x.repeat(1,3,1,1))
+        # out = trf(out)
         return out
 
 # Discriminator receives 1x28x28 image and returns a float number 0~1
@@ -46,10 +45,10 @@ class Discriminator(nn.Module):
         super(Discriminator,self).__init__()
         kernel_size = 5
         self.layer1 = nn.Sequential(
-                        nn.Conv2d(3, 8,kernel_size=kernel_size,padding=1),   # batch x 16 x 28 x 28
-                        # nn.BatchNorm2d(8),    
+                        nn.Conv2d(1, 8,kernel_size=kernel_size, padding=1),   # batch x 16 x 28 x 28
+                        nn.BatchNorm2d(8),    
                         nn.LeakyReLU(),
-                        nn.Conv2d(8,16,kernel_size=kernel_size,stride=2,padding=1),  # batch x 32 x 28 x 28
+                        nn.Conv2d(8, 16,kernel_size=kernel_size,stride=2,padding=1),  # batch x 32 x 28 x 28
                         nn.BatchNorm2d(16),    
                         nn.LeakyReLU(),
                         #('max1',nn.MaxPool2d(2,2))   # batch x 32 x 14 x 14
@@ -76,4 +75,4 @@ class Discriminator(nn.Module):
         feature = out
         out = self.out_layer(out)
         out = out.view(-1, 1)
-        return out,feature
+        return out, feature

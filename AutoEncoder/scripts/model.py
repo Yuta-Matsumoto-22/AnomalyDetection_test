@@ -33,8 +33,9 @@ class HiddenLayer(nn.Module):
         return self.relu(self.fc(x))
 
 class AutoEncoder(nn.Module):
-    def __init__(self, in_dims, latent_dims, first_dims=32):
+    def __init__(self, in_dims, latent_dims, first_dims=28*28//2):
         super(AutoEncoder, self).__init__()
+        self.in_dims = in_dims
         self.encoder = nn.Sequential(
             nn.Linear(in_dims, first_dims),
             nn.ReLU(),
@@ -76,6 +77,7 @@ class AutoEncoder(nn.Module):
         max_tmp = 0
         mean_loss = []
         for data, label in dataloader:
+            data = data.reshape(-1, self.in_dims)
             data = data.to(device)
             label = label.to(device)
             out, fe = self.forward(data)

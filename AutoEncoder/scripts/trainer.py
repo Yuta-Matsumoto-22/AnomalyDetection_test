@@ -3,13 +3,14 @@ import numpy as np
 import torch
 
 class AutoEncoderTrainer():
-    def __init__(self, model, optimizer, criterion, device, model_dir, result_dir):
+    def __init__(self, model, optimizer, criterion, input_size, device, model_dir, result_dir):
         self.model = model.to(device)
         self.optimizer = optimizer
         self.criterion = criterion
         self.model_dir = model_dir
         self.result_dir = result_dir
         self.device = device
+        self.input_size = input_size
 
     def train_model(self, dataloader_dict, max_epoch, save_interval=10, save_flag=True):
 
@@ -20,10 +21,9 @@ class AutoEncoderTrainer():
             # print('------------ Epoch:{} ------------'.format(epoch))
 
             for i, (data, label) in enumerate(dataloader_dict['train']):
+                data = data.reshape(-1, self.input_size)
                 data = data.to(self.device)
                 # label = label.to(self.device)
-
-                
                 output, feature = self.model(data)
                 loss = self.criterion(output, data)
                 self.optimizer.zero_grad()
@@ -49,6 +49,7 @@ class AutoEncoderTrainer():
         acc = 0
         losses = []
         for data, label in dataloader:
+            data = data.reshape(-1, self.input_size)
             data = data.to(self.device)
             label = label.to(self.device)
 

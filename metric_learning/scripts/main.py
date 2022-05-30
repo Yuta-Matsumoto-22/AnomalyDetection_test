@@ -30,20 +30,20 @@ parser.add_argument('--save_interval', type=int, default=1)
 
 # learning params
 parser.add_argument('--max_epoch', type=int, default=50)
-parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--batch_size', type=int, default=256)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--wd', type=float,default=5e-4)
 # parser.add_argument('--momentum', type=float, default=0.9)
 
 # dataset
-parser.add_argument('--dataset', type=str, default='kdd')
-parser.add_argument('--data_type', type=str, default='table')
-parser.add_argument('--anomaly_label', type=int, default=4)
+parser.add_argument('--dataset', type=str, default='mnist')
+parser.add_argument('--data_type', type=str, default='image')
+parser.add_argument('--anomaly_label', type=int, default=9)
 parser.add_argument('--data_num', type=int, default=-1)
 
 # model's params
 parser.add_argument('--metric_layer', type=str, default='arcface')
-parser.add_argument('--feature_dim', type=int, default=256)
+parser.add_argument('--feature_dim', type=int, default=64)
 
 args = parser.parse_args()
 print(args)
@@ -82,12 +82,12 @@ def main(args):
 
     # dir setting
     model_dir = os.path.join(args.model_dir, args.dataset)
-    model_dir = os.path.join(args.model_dir, "emb_size_" + str(args.feature_dim))
+    model_dir = os.path.join(model_dir, "emb_size_" + str(args.feature_dim))
     if os.path.exists(model_dir) != True:
         os.makedirs(model_dir)
 
     result_dir = os.path.join(args.result_dir, args.dataset)
-    result_dir = os.path.join(args.result_dir, "emb_size_" + str(args.feature_dim))
+    result_dir = os.path.join(result_dir, "emb_size_" + str(args.feature_dim))
     if os.path.exists(result_dir) != True:
         os.makedirs(result_dir)
 

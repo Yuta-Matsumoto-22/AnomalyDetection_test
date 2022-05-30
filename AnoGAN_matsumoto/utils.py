@@ -1,4 +1,8 @@
+import os
+import random
 import argparse
+
+import numpy as np
 
 import torch
 import matplotlib.pyplot as plt
@@ -28,12 +32,14 @@ def get_args():
     return args
 
 
-def Anomaly_score(x,G_z, discriminator, Lambda=0.1):
+def Anomaly_score(x, G_z, discriminator, Lambda=0.1):
     _,x_feature = discriminator(x)
     _,G_z_feature = discriminator(G_z)
     
     residual_loss = torch.sum(torch.abs(x - G_z))
     discrimination_loss = torch.sum(torch.abs(x_feature - G_z_feature))
+    # residual_loss = torch.abs(x - G_z)
+    # discrimination_loss = torch.abs(x_feature - G_z_feature)
     
     total_loss = (1 - Lambda) * residual_loss + Lambda*discrimination_loss
     print('residual loss: ', residual_loss.item(), ' disloss: ', discrimination_loss.item())
@@ -44,3 +50,22 @@ def image_check(gen_fake):
     for i in range(2):
         plt.imshow(img[i][0],cmap='gray')
         plt.show()
+
+
+def seed_torch(seed=0):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+def device_setting(gpu):
+    if gpu == -1:
+        device = 'cpu'
+    elif torch.cuda.is_available():
+        device = 'cuda:' + str(gpu)
+    else:
+        device = 'cpu'
+
+    return device
